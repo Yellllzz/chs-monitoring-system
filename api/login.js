@@ -22,6 +22,13 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ status: 'error', message: 'Please enter your username and password.' });
     }
 
+    if (!process.env.DB_HOST || !process.env.DB_USER || !process.env.DB_PASSWORD) {
+        return res.status(500).json({ 
+            status: 'error', 
+            message: 'Server configuration error: Missing database environment variables in Vercel settings.' 
+        });
+    }
+
     let connection;
     try {
         connection = await mysql.createConnection({
@@ -30,7 +37,8 @@ module.exports = async function handler(req, res) {
             user: process.env.DB_USER,
             password: process.env.DB_PASSWORD,
             database: process.env.DB_NAME || 'defaultdb',
-            ssl: { rejectUnauthorized: false }
+            ssl: { rejectUnauthorized: false },
+            connectTimeout: 10000
         });
 
         const [rows] = await connection.execute(
@@ -74,7 +82,7 @@ module.exports = async function handler(req, res) {
         }
     } catch (err) {
         if (connection) await connection.end();
-        console.error('Database connection error:', err);
-        return res.status(500).json({ status: 'error', message: 'Database connection error: ' + err.message });
+        console.error('Database error:', err);
+        return res.status(500).json({ status: 'error', message: 'Database error: ' + err.message });
     }
 };
