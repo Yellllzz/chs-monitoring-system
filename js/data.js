@@ -1,7 +1,5 @@
 // js/data.js
 
-const API_BASE_URL = "backend/api";
-
 const currentUser = {
     id: "USR-001",
     name: "Administrator",
@@ -38,65 +36,20 @@ const caseStatuses = [
 let students = [];
 let cases = [];
 
-// API Request Engine (Fixed for FormData and File Uploads)
-async function fetchAPI(endpoint, method = "GET", body = null) {
-    try {
-        let target = endpoint;
-        if (!target.includes(".php")) {
-            if (target.includes("?")) {
-                target = target.replace("?", ".php?");
-            } else {
-                target += ".php";
-            }
-        }
-
-        const fullUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/') + `${API_BASE_URL}/${target}`;
-
-        const options = {
-            method: method,
-            headers: {
-                "Accept": "application/json"
-            }
-        };
-
-        if (body && (method === "POST" || method === "PUT")) {
-            // IF BODY IS FORMDATA, DO NOT SET CONTENT-TYPE! Let browser manage boundaries automatically
-            if (body instanceof FormData) {
-                options.body = body;
-            } else {
-                options.headers["Content-Type"] = "application/json";
-                options.body = JSON.stringify(body);
-            }
-        }
-
-        const response = await fetch(fullUrl, options);
-
-        if (!response.ok) {
-            const errData = await response.json().catch(() => ({ message: `HTTP error ${response.status}` }));
-            throw new Error(errData.message || `HTTP error ${response.status}`);
-        }
-
-        return await response.json();
-    } catch (error) {
-        console.error(`[API Error] Failed fetching ${endpoint}:`, error);
-        return { status: "error", message: error.message };
-    }
-}
-
-// State synchronization helpers
+// State synchronization helpers using Vercel Serverless Endpoints
 async function loadDataFromBackend() {
     try {
         const [studentsRes, casesRes] = await Promise.all([
-            fetchAPI("students.php"),
-            fetchAPI("cases.php")
+            fetch("/api/students").then(res => res.json()).catch(() => null),
+            fetch("/api/cases").then(res => res.json()).catch(() => null)
         ]);
 
         if (studentsRes && studentsRes.status === "success") {
-            students = studentsRes.data;
+            students = studentsRes.data || [];
         }
 
         if (casesRes && casesRes.status === "success") {
-            cases = casesRes.data;
+            cases = casesRes.data || [];
         }
 
         return { students, cases };
@@ -106,23 +59,49 @@ async function loadDataFromBackend() {
 }
 
 async function createStudentRecord(studentData) {
-    const res = await fetchAPI("students.php", "POST", studentData);
-    if (res && res.status === "success") {
-        await loadDataFromBackend();
+    try {
+        const response = await fetch("/api/students", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(studentData)
+        });
+        const res = await response.json();
+        if (res && res.status === "success") {
+            await loadDataFromBackend();
+        }
+        return res;
+    } catch (err) {
+        console.error("Error creating student record:", err);
+        return { status: "error", message: err.message };
     }
-    return res;
 }
 
 async function createCaseRecord(caseData) {
-    const res = await fetchAPI("cases.php", "POST", caseData);
-    if (res && res.status === "success") {
-        await loadDataFromBackend();
+    try {
+        const response = await fetch("/api/cases", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(caseData)
+        });
+        const res = await response.json();
+        if (res && res.status === "success") {
+            await loadDataFromBackend();
+        }
+        return res;
+    } catch (err) {
+        console.error("Error creating case record:", err);
+        return { status: "error", message: err.message };
     }
-    return res;
 }
 
 async function getDashboardData() {
-    return await fetchAPI("dashboard.php");
+    try {
+        const response = await fetch("/api/dashboard");
+        return await response.json();
+    } catch (err) {
+        console.error("Error fetching dashboard data:", err);
+        return { status: "error", message: err.message };
+    }
 }
 
 function saveStateToStorage() {

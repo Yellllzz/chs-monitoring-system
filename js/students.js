@@ -264,7 +264,7 @@ async function archiveStudent(studentId) {
     }
 
     try {
-        const response = await fetch("backend/api/students.php", {
+        const response = await fetch("/api/students", {
             method: "DELETE",
             headers: {
                 "Content-Type": "application/json; charset=UTF-8"
