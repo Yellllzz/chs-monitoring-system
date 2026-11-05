@@ -410,7 +410,7 @@
             <!-- Suspension Range & Return Date Calculator -->
             <div id="suspensionCalculatorContainer" style="display: none; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
                 <div style="font-weight: 600; color: #60a5fa; margin-bottom: 10px; font-size: 0.9rem;">
-                     Suspension Effectivity & Lifting 
+                    Suspension Effectivity & Lifting
                 </div>
                 <div class="form-grid">
                     <div class="form-group" style="margin-bottom: 0;">
@@ -533,19 +533,45 @@
 <div id="toast"></div>
 
 <script>
+    // Enforce authentication & populate user card
+    (function initSession() {
+        const rawUser = localStorage.getItem('chs_session_user');
+        if (!rawUser) {
+            window.location.replace('login.html');
+            return;
+        }
+
+        try {
+            const user = JSON.parse(rawUser);
+            document.addEventListener('DOMContentLoaded', () => {
+                const nameEl = document.getElementById('currentUserName');
+                const roleEl = document.getElementById('currentUserRole');
+                if (nameEl) nameEl.textContent = user.name || user.username || 'Logged In User';
+                if (roleEl) roleEl.textContent = user.role || 'Faculty Member';
+            });
+        } catch (e) {
+            console.error("Invalid session format:", e);
+        }
+    })();
+
+    function handleSystemLogout() {
+        localStorage.removeItem('chs_session_user');
+        window.location.replace('login.html');
+    }
+
     window.historyLogsData = [];
 </script>
 
-<script src="js/data.js?v=1.4"></script>
-<script src="js/ui.js?v=1.4"></script>
-<script src="js/dashboard.js?v=1.4"></script>
-<script src="js/students.js?v=1.4"></script>
-<script src="js/cases.js?v=2.1"></script>
-<script src="js/sanctions.js?v=1.4"></script>
-<script src="js/history.js?v=1.4"></script>
-<script src="js/reports.js?v=1.4"></script>
-<script src="js/navigation.js?v=1.4"></script>
-<script src="js/script.js?v=1.4"></script>
+<script src="js/data.js?v=2.0"></script>
+<script src="js/ui.js?v=2.0"></script>
+<script src="js/dashboard.js?v=2.0"></script>
+<script src="js/students.js?v=2.0"></script>
+<script src="js/cases.js?v=2.0"></script>
+<script src="js/sanctions.js?v=2.0"></script>
+<script src="js/history.js?v=2.0"></script>
+<script src="js/reports.js?v=2.0"></script>
+<script src="js/navigation.js?v=2.0"></script>
+<script src="js/script.js?v=2.0"></script>
 
 </body>
 </html>
