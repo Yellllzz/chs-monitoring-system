@@ -19,17 +19,43 @@ module.exports = async function handler(req, res) {
         });
 
         if (req.method === 'GET') {
-            const [rows] = await connection.execute('SELECT * FROM cases ORDER BY created_at DESC');
+            const [rows] = await connection.execute('SELECT * FROM cases ORDER BY id DESC');
             await connection.end();
             return res.status(200).json({ status: 'success', data: rows });
         }
 
         if (req.method === 'POST') {
-            const { student_id, incident_type, description, severity, status, reported_by } = req.body || {};
+            const { 
+                student_id, 
+                incident_type, 
+                description, 
+                severity, 
+                status, 
+                reported_by, 
+                incident_date, 
+                location, 
+                sanction_type 
+            } = req.body || {};
+
+            // Safeguard against undefined parameters by converting them to null or safe defaults
+            const params = [
+                student_id !== undefined ? student_id : null,
+                incident_type !== undefined ? incident_type : 'Other',
+                description !== undefined ? description : '',
+                severity !== undefined ? severity : 'Low',
+                status !== undefined ? status : 'Pending',
+                reported_by !== undefined ? reported_by : 'Admin',
+                incident_date !== undefined ? incident_date : null,
+                location !== undefined ? location : null,
+                sanction_type !== undefined ? sanction_type : null
+            ];
+
             const [result] = await connection.execute(
-                `INSERT INTO cases (student_id, incident_type, description, severity, status, reported_by) VALUES (?, ?, ?, ?, ?, ?)`,
-                [student_id, incident_type, description, severity, status || 'Pending', reported_by || 'Admin']
+                `INSERT INTO cases (student_id, incident_type, description, severity, status, reported_by, incident_date, location, sanction_type) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                params
             );
+
             await connection.end();
             return res.status(201).json({ status: 'success', message: 'Case created successfully.', id: result.insertId });
         }
@@ -38,6 +64,7 @@ module.exports = async function handler(req, res) {
         return res.status(405).json({ status: 'error', message: 'Method Not Allowed' });
     } catch (err) {
         if (connection) await connection.end();
+        console.error('Cases API error:', err);
         return res.status(500).json({ status: 'error', message: err.message });
     }
 };
