@@ -1,14 +1,11 @@
 // js/cases.js
 
-// Helper to get active user's full name from global state or localStorage
 function getActiveFilingUser() {
-    // 1. Check window state
     if (typeof currentUser !== "undefined" && currentUser) {
         const name = currentUser.name || currentUser.full_name || currentUser.username;
         if (name) return name;
     }
     
-    // 2. Fallback to localStorage session
     const savedSession = localStorage.getItem('chs_session_user');
     if (savedSession) {
         try {
@@ -229,9 +226,13 @@ function getCurrentCaseStatus() {
     return el ? el.value : "";
 }
 
-function showNewCaseModal() {
+async function showNewCaseModal() {
     const form = document.getElementById("newCaseForm");
     if (form) form.reset();
+
+    if (typeof loadDataFromBackend === "function") {
+        await loadDataFromBackend();
+    }
 
     const dateInput = document.getElementById("caseDate");
     if (dateInput) dateInput.value = new Date().toISOString().split("T")[0];
@@ -247,26 +248,14 @@ function showNewCaseModal() {
     if (hiddenSelect) hiddenSelect.value = "";
     if (resultsContainer) resultsContainer.style.display = "none";
 
-    // Uncheck all incident checkboxes
     document.querySelectorAll('input[name="incident_types"]').forEach(cb => cb.checked = false);
     
-    // Reset custom inputs & calculator
     toggleOtherIncidentInput();
     toggleOtherSanctionInput();
 
-    // Dynamically retrieve active logged-in teacher's name
     const activeOfficial = getActiveFilingUser();
-
-    // Update filing official text fields in the modal UI
     const filedByDisplay = document.getElementById("caseFiledByDisplay");
-    if (filedByDisplay) {
-        filedByDisplay.textContent = activeOfficial;
-    }
-
-    const filingOfficialDisplay = document.getElementById("filingOfficialDisplay");
-    if (filingOfficialDisplay) {
-        filingOfficialDisplay.textContent = activeOfficial;
-    }
+    if (filedByDisplay) filedByDisplay.textContent = activeOfficial;
 
     if (typeof populateSectionDropdown === "function") {
         populateSectionDropdown("caseSectionFilter");
@@ -336,34 +325,32 @@ function handleStudentSearch(query) {
 
 function selectStudentForCase(studentKey) {
     const student = (students || []).find(s => String(s.id) === String(studentKey) || String(s.student_id) === String(studentKey));
-    if (!student) return;
-
-    const dbPrimaryKey = student.id || student.student_id;
+    
+    const dbPrimaryKey = student ? (student.id || student.student_id) : studentKey;
+    const displayName = student ? getStudentFullName(student) : studentKey;
     
     document.getElementById("caseStudentSelect").value = dbPrimaryKey;
-    document.getElementById("studentSearchInput").value = getStudentFullName(student);
+    document.getElementById("studentSearchInput").value = displayName;
 
-    const sectionFilter = document.getElementById("caseSectionFilter");
-    if (sectionFilter && student.grade_level && student.section) {
-        sectionFilter.value = `${student.grade_level} - ${student.section}`;
+    if (student && student.grade_level && student.section) {
+        const sectionFilter = document.getElementById("caseSectionFilter");
+        if (sectionFilter) sectionFilter.value = `${student.grade_level} - ${student.section}`;
     }
 
     const resultsContainer = document.getElementById("studentSearchResults");
     if (resultsContainer) resultsContainer.style.display = "none";
 
-    if (typeof onStudentSelected === "function") {
+    if (student && typeof onStudentSelected === "function") {
         onStudentSelected(dbPrimaryKey, "caseStudentPreview");
     }
 }
 
-// Custom "Other Incident" input toggle
 function toggleOtherIncidentInput() {
     const isOtherChecked = document.getElementById("otherIncidentCheckbox")?.checked;
     const container = document.getElementById("otherIncidentContainer");
     if (container) container.style.display = isOtherChecked ? "block" : "none";
 }
 
-// Custom "Other Sanction" & Suspension Calculator toggle
 function toggleOtherSanctionInput() {
     const selectedSanction = document.getElementById("caseSanction")?.value || "";
     const customContainer = document.getElementById("otherSanctionContainer");
@@ -395,7 +382,6 @@ function toggleOtherSanctionInput() {
     }
 }
 
-// Calculate suspension return date skipping weekends (Saturday/Sunday)
 function calculateSuspensionLiftingDate() {
     const startDateVal = document.getElementById("suspensionStartDate")?.value;
     const daysVal = parseInt(document.getElementById("suspensionDays")?.value || "1", 10);
@@ -409,7 +395,6 @@ function calculateSuspensionLiftingDate() {
     let currentDate = new Date(startDateVal);
     let addedSchoolDays = 0;
 
-    // Skip Saturday (6) and Sunday (0)
     while (addedSchoolDays < daysVal) {
         currentDate.setDate(currentDate.getDate() + 1);
         const dayOfWeek = currentDate.getDay();
@@ -423,9 +408,7 @@ function calculateSuspensionLiftingDate() {
     const isoLiftingDate = currentDate.toISOString().split("T")[0];
 
     if (resultBadge) {
-        resultBadge.innerHTML = `
-            <span> Lifted / Student Return Date: <strong>${formattedLiftingDate}</strong></span>
-        `;
+        resultBadge.innerHTML = `<span> Lifted / Student Return Date: <strong>${formattedLiftingDate}</strong></span>`;
     }
 
     return {
@@ -436,7 +419,6 @@ function calculateSuspensionLiftingDate() {
     };
 }
 
-// Multiple Incident Recommendation Calculator
 function updateMultiCaseRecommendation() {
     const checkboxes = document.querySelectorAll('input[name="incident_types"]:checked');
     const severitySelect = document.getElementById("caseSeverity");
@@ -492,7 +474,27 @@ async function saveNewCase(e) {
     e.preventDefault();
 
     const studentSelect = document.getElementById("caseStudentSelect");
-    const studentId = studentSelect ? studentSelect.value : "";
+    let studentId = studentSelect ? studentSelect.value.trim() : "";
+
+    // Fallback: If hidden select is empty, attempt to match from search input text
+    if (!studentId) {
+        const searchInputVal = document.getElementById("studentSearchInput")?.value.trim().toLowerCase();
+        if (searchInputVal) {
+            const matched = (students || []).find(s => 
+                String(s.id) === searchInputVal || 
+                String(s.student_id) === searchInputVal || 
+                getStudentFullName(s).toLowerCase() === searchInputVal
+            );
+            if (matched) {
+                studentId = matched.id || matched.student_id;
+            }
+        }
+    }
+
+    if (!studentId) {
+        if (typeof showToast === "function") showToast("Please select a valid student from the search list.", "error");
+        return;
+    }
 
     const checkedIncidents = Array.from(document.querySelectorAll('input[name="incident_types"]:checked')).map(cb => cb.value);
     
@@ -511,13 +513,11 @@ async function saveNewCase(e) {
 
     const incidentTypeString = checkedIncidents.join(", ");
 
-    // Determine assigned sanction
     let assignedSanction = document.getElementById("caseSanction")?.value || "Subject for Counseling";
     if (assignedSanction === "Other") {
         assignedSanction = document.getElementById("customSanctionText")?.value.trim() || "Custom Sanction";
     }
 
-    // Append calculated suspension indicator info
     let extraSuspensionNote = "";
     if (assignedSanction.toLowerCase().includes("suspension")) {
         const suspensionInfo = calculateSuspensionLiftingDate();
@@ -531,40 +531,35 @@ async function saveNewCase(e) {
     const incidentDate = document.getElementById("caseDate")?.value || new Date().toISOString().split("T")[0];
     const location = document.getElementById("caseLocation")?.value || "";
     let description = document.getElementById("caseDescription")?.value.trim() || "";
-    const fileInput = document.getElementById("caseNarrativeFile");
 
     if (extraSuspensionNote) {
         description += extraSuspensionNote;
     }
 
-    if (!studentId || !incidentTypeString || !description) {
-        if (typeof showToast === "function") showToast("Please select a student, incident type, and write a description.", "error");
+    if (!incidentTypeString || !description) {
+        if (typeof showToast === "function") showToast("Please select an incident type and write a description.", "error");
         return;
     }
 
     const activeOfficial = getActiveFilingUser();
 
-    const formData = new FormData();
-    formData.append("student_id", studentId);
-    formData.append("filed_by", activeOfficial);
-    formData.append("recorded_by", activeOfficial);
-    formData.append("incident_type", incidentTypeString);
-    formData.append("sanction_type", assignedSanction);
-    formData.append("severity", severity);
-    formData.append("incident_date", incidentDate);
-    formData.append("location", location);
-    formData.append("description", description);
-
-    if (fileInput && fileInput.files[0]) {
-        formData.append("narrative_file", fileInput.files[0]);
-    }
+    const payload = {
+        student_id: studentId,
+        filed_by: activeOfficial,
+        incident_type: incidentTypeString,
+        severity: severity,
+        incident_date: incidentDate,
+        location: location,
+        description: description,
+        status: "Under Investigation"
+    };
 
     try {
-        const response = await createCaseRecord(formData);
+        const response = await createCaseRecord(payload);
 
         if (response && response.status === "success") {
             if (typeof showToast === "function") {
-                showToast(`Case ${response.case_no || ''} logged successfully!`);
+                showToast(`Case logged successfully!`);
             }
 
             closeModal("newCaseModal");
@@ -586,475 +581,3 @@ async function saveNewCase(e) {
         if (typeof showToast === "function") showToast("Server error. Failed to create case.", "error");
     }
 }
-
-async function updateCaseStatus(caseId, newStatus) {
-    if (!newStatus) {
-        if (typeof showToast === "function") showToast("Please select a case status.");
-        return;
-    }
-
-    try {
-        const response = await fetchAPI("cases.php", "POST", {
-            action: "update_status",
-            case_id: caseId,
-            status: newStatus
-        });
-
-        if (response && response.status === "success") {
-            if (typeof showToast === "function") {
-                if (newStatus === "Closed") {
-                    showToast(`Case ${caseId} closed and moved to History.`);
-                    closeModal("caseModal");
-                } else {
-                    showToast(`Case status updated to ${newStatus}.`);
-                }
-            }
-
-            if (typeof currentPage !== "undefined" && currentPage === "cases") await renderCases();
-            if (typeof currentPage !== "undefined" && currentPage === "history" && typeof renderHistory === "function") await renderHistory();
-            if (typeof currentPage !== "undefined" && currentPage === "dashboard" && typeof renderDashboard === "function") await renderDashboard();
-        } else {
-            if (typeof showToast === "function") showToast(response.message || "Failed to update case status.");
-        }
-    } catch (err) {
-        console.error("Error updating case status:", err);
-        if (typeof showToast === "function") showToast("Server error. Unable to update status.");
-    }
-}
-
-async function sendParentSMSNotice(caseId) {
-    if (!confirm(`Send SMS notification notice to parent/guardian for Case ${caseId}?`)) {
-        return;
-    }
-
-    try {
-        const response = await fetch("backend/api/cases.php", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json; charset=UTF-8"
-            },
-            body: JSON.stringify({
-                action: "send_sms_notice",
-                case_id: caseId
-            })
-        }).then(res => res.json());
-
-        if (response && response.status === "success") {
-            if (typeof showToast === "function") showToast("SMS notification sent to parent successfully!");
-        } else {
-            if (typeof showToast === "function") showToast(response ? response.message : "Failed to send SMS.", "error");
-        }
-    } catch (err) {
-        console.error("Error sending SMS:", err);
-        if (typeof showToast === "function") showToast("Server error. Could not dispatch SMS notice.", "error");
-    }
-}
-
-function showCase(caseId) {
-    const caseItem = (cases || []).find(item => String(item.case_no) === String(caseId) || String(item.id) === String(caseId));
-    if (!caseItem) return;
-
-    const sId = caseItem.student_id || caseItem.studentId;
-    const student = getStudent(sId);
-    const modalTitle = document.getElementById("caseModalTitle");
-    const details = document.getElementById("caseDetails");
-
-    if (!modalTitle || !details) return;
-
-    const cNo = caseItem.case_no || caseItem.id;
-    const incidentName = caseItem.incident_type || caseItem.incident;
-    const caseDate = caseItem.incident_date || caseItem.date;
-    const studentName = caseItem.student_name || (student ? getStudentFullName(student) : 'Unknown Student');
-
-    modalTitle.textContent = cNo;
-    const narrativeFile = caseItem.narrative_report;
-
-    details.innerHTML = `
-        <div class="detail-grid">
-            <div class="detail-item">
-                <span class="detail-label">Student</span>
-                <span class="detail-value">${studentName}</span>
-            </div>
-            <div class="detail-item">
-                <span class="detail-label">Filed / Logged By</span>
-                <span class="detail-value"><strong>${caseItem.filed_by || caseItem.filedBy || caseItem.recorded_by || getActiveFilingUser()}</strong></span>
-            </div>
-            <div class="detail-item">
-                <span class="detail-label">Incident(s)</span>
-                <span class="detail-value"><strong>${incidentName}</strong></span>
-            </div>
-            <div class="detail-item">
-                <span class="detail-label">Date</span>
-                <span class="detail-value">${typeof formatDate === "function" ? formatDate(caseDate) : caseDate}</span>
-            </div>
-            <div class="detail-item">
-                <span class="detail-label">Location</span>
-                <span class="detail-value">${caseItem.location || 'N/A'}</span>
-            </div>
-            <div class="detail-item">
-                <span class="detail-label">Severity</span>
-                <span class="detail-value">${typeof severityBadge === "function" ? severityBadge(caseItem.severity) : caseItem.severity}</span>
-            </div>
-            <div class="detail-item">
-                <span class="detail-label">Status</span>
-                <span class="detail-value">${typeof statusBadge === "function" ? statusBadge(caseItem.status) : caseItem.status}</span>
-            </div>
-            <div class="detail-item">
-                <span class="detail-label">Assigned Sanction</span>
-                <span class="detail-value">${caseItem.sanction_type || (caseItem.sanction ? caseItem.sanction.type : "Not assigned")}</span>
-            </div>
-        </div>
-
-        <div class="case-status-editor">
-            <div>
-                <label>Update Case Status</label>
-                <select id="caseStatusUpdate" class="filter-select" style="width: 100%;">
-                    ${(typeof caseStatuses !== "undefined" ? caseStatuses : ["Under Investigation", "Sanction Pending", "Active", "Follow-up", "Closed"]).map(statusOption => `
-                        <option value="${statusOption}" ${caseItem.status === statusOption ? "selected" : ""}>
-                            ${statusOption}
-                        </option>
-                    `).join("")}
-                </select>
-            </div>
-            <button class="primary-button" onclick="updateCaseStatus('${cNo}', document.getElementById('caseStatusUpdate').value)">
-                Update Status
-            </button>
-        </div>
-
-        <div class="description-box">
-            <div class="detail-label">Description</div>
-            <p>${caseItem.description || 'No detailed description provided.'}</p>
-        </div>
-
-        <!-- Student Narrative Report Section (Attach / View File) -->
-        <div class="narrative-box" style="margin-top: 15px; padding: 14px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px;">
-            <div class="detail-label" style="color: #60a5fa; font-weight: 600; margin-bottom: 8px;">
-                📄 Student Narrative Report
-            </div>
-            
-            ${narrativeFile ? `
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
-                    <a href="backend/${narrativeFile}" target="_blank" class="primary-button" style="display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; padding: 8px 14px; text-decoration: none;">
-                        View / Download Attached Narrative
-                    </a>
-                    <button class="text-button" onclick="document.getElementById('lateNarrativeInput').style.display = 'block'" style="font-size: 0.82rem; color: #a0aec0;">
-                        Replace File
-                    </button>
-                </div>
-            ` : `
-                <p style="font-size: 0.85rem; color: #a0aec0; margin-bottom: 10px;">No narrative statement attached yet.</p>
-            `}
-
-            <div id="lateNarrativeInput" style="display: ${narrativeFile ? 'none' : 'block'}; margin-top: 10px;">
-                <div style="display: flex; gap: 8px; align-items: center;">
-                    <input 
-                        type="file" 
-                        id="lateNarrativeFile" 
-                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                        style="padding: 6px; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; width: 100%; color: #e2e8f0; background: rgba(255,255,255,0.05); font-size: 0.85rem;"
-                    >
-                    <button class="primary-button" onclick="uploadLateNarrativeReport('${cNo}')" style="white-space: nowrap; padding: 8px 14px;">
-                        Upload File
-                    </button>
-                </div>
-                <small style="color: #888; display: block; margin-top: 4px;">Upload signed statement or student narrative (PDF, DOC, DOCX, JPG, PNG).</small>
-            </div>
-        </div>
-
-        <div class="timeline">
-            <h3 class="timeline-title">Case Timeline</h3>
-            <div class="timeline-item">
-                <div class="timeline-dot"></div>
-                <div>
-                    <strong>Incident Reported</strong>
-                    <span>${typeof formatDate === "function" ? formatDate(caseDate) : caseDate} — Logged by ${caseItem.filed_by || caseItem.filedBy || caseItem.recorded_by || getActiveFilingUser()}</span>
-                </div>
-            </div>
-            ${narrativeFile ? `
-                <div class="timeline-item">
-                    <div class="timeline-dot"></div>
-                    <div>
-                        <strong>Student Narrative Report Attached</strong>
-                        <span>Statement uploaded to digital case file.</span>
-                    </div>
-                </div>
-            ` : ''}
-            <div class="timeline-item">
-                <div class="timeline-dot"></div>
-                <div>
-                    <strong>Initial Assessment</strong>
-                    <span>Case recorded and assessed.</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="modal-actions" style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end;">
-            <button class="secondary-button" onclick="sendParentSMSNotice('${cNo}')" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);">
-                📱 Send Parent SMS
-            </button>
-            <button class="secondary-button" onclick="printCaseReport('${cNo}')">
-                🖨️ Print Report
-            </button>
-            <button class="secondary-button" onclick="closeModal('caseModal'); showStudent('${sId}')">
-                Student History
-            </button>
-            <button class="primary-button" onclick="showSanctionModal('${cNo}')">
-                ${(caseItem.sanction_type || caseItem.sanction) ? "Manage Sanction" : "Assign Sanction"}
-            </button>
-            <button class="secondary-button" onclick="removeMistakenCase('${cNo}')" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);">
-                🗑️ Remove Case (Mistaken Accusation)
-            </button>
-        </div>
-    `;
-
-    openModal("caseModal");
-}
-
-async function removeMistakenCase(caseId) {
-    const reason = prompt("Enter reason for removing this case (e.g. Mistaken identity, False accusation, Incorrect logging):", "Mistakenly accused / Dismissed after review");
-    
-    if (reason === null) return;
-
-    if (!confirm(`Are you sure you want to permanently remove Case ${caseId}? This will clear the case from the student's record.`)) {
-        return;
-    }
-
-    try {
-        const response = await fetch("backend/api/cases.php", {
-            method: "DELETE",
-            headers: {
-                "Content-Type": "application/json; charset=UTF-8"
-            },
-            body: JSON.stringify({
-                case_id: caseId,
-                reason: reason
-            })
-        }).then(res => res.json());
-
-        if (response && response.status === "success") {
-            if (typeof showToast === "function") showToast(`Case ${caseId} removed from student record!`);
-            closeModal("caseModal");
-
-            if (typeof loadDataFromBackend === "function") await loadDataFromBackend();
-
-            if (typeof currentPage !== "undefined" && currentPage === "cases" && typeof renderCases === "function") await renderCases();
-            if (typeof currentPage !== "undefined" && currentPage === "history" && typeof renderHistory === "function") await renderHistory();
-            if (typeof currentPage !== "undefined" && currentPage === "dashboard" && typeof renderDashboard === "function") await renderDashboard();
-        } else {
-            if (typeof showToast === "function") showToast(response ? response.message : "Failed to remove case.", "error");
-        }
-    } catch (err) {
-        console.error("Error removing case:", err);
-        if (typeof showToast === "function") showToast("Server error. Unable to remove case.", "error");
-    }
-}
-
-async function uploadLateNarrativeReport(caseId) {
-    const fileInput = document.getElementById("lateNarrativeFile");
-    if (!fileInput || !fileInput.files[0]) {
-        if (typeof showToast === "function") showToast("Please select a file to upload.", "error");
-        return;
-    }
-
-    const formData = new FormData();
-    formData.append("action", "upload_narrative");
-    formData.append("case_id", caseId);
-    formData.append("narrative_file", fileInput.files[0]);
-
-    try {
-        const response = await fetch("backend/api/cases.php", {
-            method: "POST",
-            body: formData
-        }).then(res => res.json());
-
-        if (response && response.status === "success") {
-            if (typeof showToast === "function") showToast("Narrative report uploaded successfully!");
-            
-            if (typeof loadDataFromBackend === "function") await loadDataFromBackend();
-            showCase(caseId);
-        } else {
-            if (typeof showToast === "function") showToast(response ? response.message : "Failed to upload file.", "error");
-        }
-    } catch (err) {
-        console.error("Upload error:", err);
-        if (typeof showToast === "function") showToast("Server error while uploading narrative file.", "error");
-    }
-}
-
-function printCaseReport(caseId) {
-    const caseItem = (cases || []).find(item => String(item.case_no) === String(caseId) || String(item.id) === String(caseId));
-    if (!caseItem) return;
-
-    const sId = caseItem.student_id || caseItem.studentId;
-    const student = getStudent(sId);
-    const fullName = caseItem.student_name || (student ? getStudentFullName(student) : 'N/A');
-    const caseDate = caseItem.incident_date || caseItem.date;
-    const filingOfficial = caseItem.filed_by || caseItem.filedBy || caseItem.recorded_by || getActiveFilingUser();
-
-    const printWindow = window.open("", "_blank");
-    printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Incident Report - ${caseItem.case_no || caseItem.id}</title>
-            <style>
-                body { font-family: Arial, sans-serif; padding: 40px; color: #111; line-height: 1.5; }
-                .header { text-align: center; border-bottom: 2px solid #222; padding-bottom: 15px; margin-bottom: 25px; }
-                .header h1 { margin: 0; font-size: 20px; text-transform: uppercase; }
-                .header p { margin: 4px 0 0; font-size: 13px; color: #555; }
-                .section-title { font-size: 14px; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 20px; margin-bottom: 10px; }
-                .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px; }
-                .grid-item { font-size: 13px; }
-                .grid-item strong { display: block; font-size: 11px; text-transform: uppercase; color: #666; }
-                .box { border: 1px solid #ccc; padding: 12px; border-radius: 6px; font-size: 13px; background: #f9f9f9; }
-                .signatures { margin-top: 60px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; text-align: center; }
-                .sig-line { border-top: 1px solid #333; margin-top: 45px; padding-top: 5px; font-size: 12px; font-weight: bold; }
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <h1>Caloocan High School</h1>
-                <p>Student Discipline & Guidance Office • Official Incident Report</p>
-            </div>
-
-            <div class="section-title">Case Overview</div>
-            <div class="grid">
-                <div class="grid-item"><strong>Case Reference Number</strong> ${caseItem.case_no || caseItem.id}</div>
-                <div class="grid-item"><strong>Incident Date</strong> ${typeof formatDate === "function" ? formatDate(caseDate) : caseDate}</div>
-                <div class="grid-item"><strong>Incident Type(s)</strong> ${caseItem.incident_type || caseItem.incident}</div>
-                <div class="grid-item"><strong>Incident Location</strong> ${caseItem.location || 'N/A'}</div>
-                <div class="grid-item"><strong>Severity Level</strong> ${caseItem.severity}</div>
-                <div class="grid-item"><strong>Filed By</strong> ${filingOfficial}</div>
-                <div class="grid-item"><strong>Case Status</strong> ${caseItem.status}</div>
-                <div class="grid-item"><strong>Student Narrative Attached</strong> ${caseItem.narrative_report ? 'Yes (Archived in Digital Record)' : 'No'}</div>
-            </div>
-
-            <div class="section-title">Student Details</div>
-            <div class="grid">
-                <div class="grid-item"><strong>Student Name</strong> ${fullName}</div>
-                <div class="grid-item"><strong>Student ID / LRN</strong> ${student ? (student.student_id || student.id || 'N/A') : 'N/A'}</div>
-                <div class="grid-item"><strong>Grade & Section</strong> ${student ? ((student.grade_level || '') + ' - ' + (student.section || '')) : 'N/A'}</div>
-                <div class="grid-item"><strong>Guardian Name & Contact</strong> ${student ? ((student.guardian_name || 'N/A') + ' (' + (student.guardian_contact || 'N/A') + ')') : 'N/A'}</div>
-            </div>
-
-            <div class="section-title">Incident Description</div>
-            <div class="box">${caseItem.description || 'No detailed description.'}</div>
-
-            <div class="section-title">Disciplinary Action & Sanction</div>
-            <div class="grid">
-                <div class="grid-item"><strong>Assigned Sanction</strong> ${caseItem.sanction_type || (caseItem.sanction ? caseItem.sanction.type : 'None assigned')}</div>
-                <div class="grid-item"><strong>Sanction Status</strong> ${caseItem.sanction_status || (caseItem.sanction ? caseItem.sanction.status : 'N/A')}</div>
-            </div>
-
-            <div class="signatures">
-                <div>
-                    <div class="sig-line">Discipline Officer / Counselor (${filingOfficial})</div>
-                </div>
-                <div>
-                    <div class="sig-line">Student Signature</div>
-                </div>
-                <div>
-                    <div class="sig-line">Parent / Guardian Signature</div>
-                </div>
-            </div>
-
-            <script>
-                window.onload = function() { window.print(); window.close(); }
-            </script>
-        </body>
-        </html>
-    `);
-    printWindow.document.close();
-}
-
-function showSanctionModal(caseId) {
-    const caseItem = (cases || []).find(item => String(item.case_no) === String(caseId) || String(item.id) === String(caseId));
-    if (!caseItem) return;
-
-    const sId = caseItem.student_id || caseItem.studentId;
-    const student = getStudent(sId);
-    const caseIdInput = document.getElementById("sanctionCaseId");
-    const caseInfo = document.getElementById("sanctionCaseInfo");
-    const sanctionType = document.getElementById("sanctionType");
-    const sanctionDate = document.getElementById("sanctionDate");
-    const sanctionNotes = document.getElementById("sanctionNotes");
-
-    const cNo = caseItem.case_no || caseItem.id;
-    const dbPrimaryKey = caseItem.id;
-    const incidentName = caseItem.incident_type || caseItem.incident;
-
-    if (caseIdInput) caseIdInput.value = dbPrimaryKey;
-
-    if (caseInfo) {
-        const recommended = (typeof caseRules !== "undefined" && caseRules[incidentName]) ? caseRules[incidentName].sanction : "Manual assessment";
-        caseInfo.innerHTML = `
-            <strong>${cNo}</strong>
-            <span>${caseItem.student_name || (student ? getStudentFullName(student) : 'Student')} - ${incidentName}</span>
-            <small>Recommended: ${recommended}</small>
-        `;
-    }
-
-    if (sanctionType) {
-        const recommended = (typeof caseRules !== "undefined" && caseRules[incidentName]) ? caseRules[incidentName].sanction : "";
-        sanctionType.value = caseItem.sanction_type || (caseItem.sanction ? caseItem.sanction.type : recommended);
-    }
-
-    if (sanctionDate) {
-        sanctionDate.value = new Date().toISOString().split("T")[0];
-    }
-
-    if (sanctionNotes) {
-        sanctionNotes.value = caseItem.sanction ? caseItem.sanction.notes : "";
-    }
-
-    closeModal("caseModal");
-    closeModal("studentModal");
-    openModal("sanctionModal");
-}
-
-function checkSessionGuard() {
-    const savedUser = localStorage.getItem('chs_session_user');
-    
-    if (!savedUser) {
-        window.location.replace('login.html');
-        return false;
-    }
-
-    try {
-        const userObj = JSON.parse(savedUser);
-        window.currentUser = userObj;
-
-        const nameDisplay = document.getElementById('currentUserName');
-        const roleDisplay = document.getElementById('currentUserRole');
-
-        if (nameDisplay) nameDisplay.textContent = userObj.name || userObj.full_name || 'Administrator';
-        if (roleDisplay) roleDisplay.textContent = userObj.role || 'Faculty';
-
-        return true;
-    } catch (e) {
-        localStorage.removeItem('chs_session_user');
-        window.location.replace('login.html');
-        return false;
-    }
-}
-
-document.addEventListener("DOMContentLoaded", async function () {
-    if (!checkSessionGuard()) return;
-
-    const caseDate = document.getElementById("caseDate");
-    if (caseDate) {
-        caseDate.value = new Date().toISOString().split("T")[0];
-    }
-
-    await loadDataFromBackend();
-
-    if (typeof navigate === "function") {
-        navigate(currentPage || "dashboard");
-    }
-});
-
-window.addEventListener('pageshow', function (event) {
-    if (event.persisted || (window.performance && window.performance.navigation.type === 2)) {
-        checkSessionGuard();
-    }
-});

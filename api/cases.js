@@ -27,6 +27,7 @@ module.exports = async function handler(req, res) {
         if (req.method === 'POST') {
             const { 
                 student_id, 
+                studentId,
                 filed_by,
                 incident_type, 
                 description, 
@@ -36,7 +37,9 @@ module.exports = async function handler(req, res) {
                 location 
             } = req.body || {};
 
-            if (!student_id) {
+            const finalStudentId = student_id || studentId;
+
+            if (!finalStudentId) {
                 await connection.end();
                 return res.status(400).json({ status: 'error', message: 'Student ID is required.' });
             }
@@ -47,7 +50,7 @@ module.exports = async function handler(req, res) {
 
             const params = [
                 caseNo,
-                student_id,
+                finalStudentId,
                 filedBy,
                 incident_type || 'Other',
                 description || '',
