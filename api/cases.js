@@ -33,17 +33,14 @@ module.exports = async function handler(req, res) {
                 severity, 
                 status, 
                 incident_date, 
-                location,
-                narrative_report 
+                location 
             } = req.body || {};
 
-            // Validate mandatory student ID to satisfy NOT NULL constraint
             if (!student_id) {
                 await connection.end();
                 return res.status(400).json({ status: 'error', message: 'Student ID is required.' });
             }
 
-            // Auto-generate case_no and assign defaults for required NOT NULL fields if missing
             const caseNo = req.body.case_no || `CHS-${Date.now().toString().slice(-8)}`;
             const filedBy = filed_by || 'Administrator';
             const caseStatus = status || 'Under Investigation';
@@ -57,18 +54,26 @@ module.exports = async function handler(req, res) {
                 severity || 'Low',
                 caseStatus,
                 incident_date || new Date().toISOString().split('T')[0],
-                location || 'Classroom',
-                narrative_report || null
+                location || 'Classroom'
             ];
 
             const [result] = await connection.execute(
-                `INSERT INTO cases (case_no, student_id, filed_by, incident_type, description, severity, status, incident_date, location, narrative_report) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO cases (case_no, student_id, filed_by, incident_type, description, severity, status, incident_date, location) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 params
             );
 
             await connection.end();
-            return res.status(201).json({ status: 'success', message: 'Case created successfully.', id: result.insertId });
+            return res.status(201).json({ status: 'success', message: 'Case created successfully.', id: result.insertId, case_no: caseNo });
+        }
+
+        if (req.method === 'PUT') {
+            const { action, case_id, status } = req.body || {};
+            if (action === 'update_status' && case_id && status) {
+                await connection.execute('UPDATE cases SET status = ? WHERE case_no = ? OR id = ?', [status, case_id, case_id]);
+                await connection.end();
+                return res.status(200).json({ status: 'success', message: 'Case status updated successfully.' });
+            }
         }
 
         await connection.end();
