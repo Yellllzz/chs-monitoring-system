@@ -32,8 +32,7 @@ module.exports = async function handler(req, res) {
                 severity, 
                 status, 
                 incident_date, 
-                location, 
-                sanction_type 
+                location 
             } = req.body || {};
 
             // Safeguard against undefined parameters by converting them to null or safe defaults
@@ -44,13 +43,12 @@ module.exports = async function handler(req, res) {
                 severity !== undefined ? severity : 'Low',
                 status !== undefined ? status : 'Pending',
                 incident_date !== undefined ? incident_date : null,
-                location !== undefined ? location : null,
-                sanction_type !== undefined ? sanction_type : null
+                location !== undefined ? location : null
             ];
 
             const [result] = await connection.execute(
-                `INSERT INTO cases (student_id, incident_type, description, severity, status, incident_date, location, sanction_type) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO cases (student_id, incident_type, description, severity, status, incident_date, location) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
                 params
             );
 
