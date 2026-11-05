@@ -27,28 +27,43 @@ module.exports = async function handler(req, res) {
         if (req.method === 'POST') {
             const { 
                 student_id, 
+                filed_by,
                 incident_type, 
                 description, 
                 severity, 
                 status, 
                 incident_date, 
-                location 
+                location,
+                narrative_report 
             } = req.body || {};
 
-            // Safeguard against undefined parameters by converting them to null or safe defaults
+            // Validate mandatory student ID to satisfy NOT NULL constraint
+            if (!student_id) {
+                await connection.end();
+                return res.status(400).json({ status: 'error', message: 'Student ID is required.' });
+            }
+
+            // Auto-generate case_no and assign defaults for required NOT NULL fields if missing
+            const caseNo = req.body.case_no || `CHS-${Date.now().toString().slice(-8)}`;
+            const filedBy = filed_by || 'Administrator';
+            const caseStatus = status || 'Under Investigation';
+
             const params = [
-                student_id !== undefined ? student_id : null,
-                incident_type !== undefined ? incident_type : 'Other',
-                description !== undefined ? description : '',
-                severity !== undefined ? severity : 'Low',
-                status !== undefined ? status : 'Pending',
-                incident_date !== undefined ? incident_date : null,
-                location !== undefined ? location : null
+                caseNo,
+                student_id,
+                filedBy,
+                incident_type || 'Other',
+                description || '',
+                severity || 'Low',
+                caseStatus,
+                incident_date || new Date().toISOString().split('T')[0],
+                location || 'Classroom',
+                narrative_report || null
             ];
 
             const [result] = await connection.execute(
-                `INSERT INTO cases (student_id, incident_type, description, severity, status, incident_date, location) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO cases (case_no, student_id, filed_by, incident_type, description, severity, status, incident_date, location, narrative_report) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 params
             );
 
