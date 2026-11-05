@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Caloocan High School - Student Case Monitoring</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Dark Theme Select Styling Fix */
+        select, 
+        .filter-container select,
+        .history-select,
+        .modal select {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-color: rgba(255, 255, 255, 0.05);
+            color: #e2e8f0;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 8px;
+            padding: 8px 32px 8px 12px;
+            font-size: 0.88rem;
+            font-weight: 500;
+            outline: none;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23a0aec0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+        }
+
+        select:hover, 
+        .filter-container select:hover {
+            background-color: rgba(255, 255, 255, 0.08) !important;
+            border-color: rgba(255, 255, 255, 0.25) !important;
+        }
+
+        select:focus, 
+        .filter-container select:focus {
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+        }
+
+        select option {
+            background-color: #1e293b !important;
+            color: #f1f5f9 !important;
+            padding: 10px !important;
+        }
+
+        /* Checkbox Chip / Pill Alignment Fix */
+        .checkbox-chip {
+            display: flex !important;
+            align-items: center !important;
+            gap: 10px !important;
+            background: rgba(255, 255, 255, 0.05) !important;
+            padding: 8px 12px !important;
+            border-radius: 6px !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease-in-out !important;
+            user-select: none !important;
+        }
+
+        .checkbox-chip:hover {
+            background: rgba(255, 255, 255, 0.08) !important;
+            border-color: rgba(255, 255, 255, 0.2) !important;
+        }
+
+        .checkbox-chip input[type="checkbox"] {
+            width: 16px !important;
+            height: 16px !important;
+            min-width: 16px !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            accent-color: #3b82f6 !important;
+            cursor: pointer !important;
+            box-shadow: none !important;
+            border: none !important;
+        }
+
+        .checkbox-chip span {
+            font-size: 0.88rem !important;
+            color: #e2e8f0 !important;
+            font-weight: 500 !important;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app">
+
+    <aside class="sidebar">
+        <!-- BRAND LOGO -->
+        <div class="brand">
+            <div class="brand-logo">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    <path d="M12 8v8"/>
+                    <path d="M8 12h8"/>
+                </svg>
+            </div>
+            <div>
+                <h2>Caloocan HS</h2>
+                <span>Student Monitoring</span>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <button class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')">
+                <span class="nav-icon">▤</span>
+                <span>Dashboard</span>
+            </button>
+            <button class="nav-item" data-page="students" onclick="navigate('students')">
+                <span class="nav-icon">👥</span>
+                <span>Students</span>
+            </button>
+            <button class="nav-item" data-page="cases" onclick="navigate('cases')">
+                <span class="nav-icon">▣</span>
+                <span>Cases</span>
+            </button>
+            <button class="nav-item" data-page="sanctions" onclick="navigate('sanctions')">
+                <span class="nav-icon">✓</span>
+                <span>Sanctions</span>
+            </button>
+            <button class="nav-item" data-page="history" onclick="navigate('history')">
+                <span class="nav-icon">📜</span>
+                <span>History</span>
+            </button>
+            <button class="nav-item" data-page="reports" onclick="navigate('reports')">
+                <span class="nav-icon">▤</span>
+                <span>Reports</span>
+            </button>
+        </nav>
+
+        <div class="sidebar-bottom">
+            <div class="user-card" id="userCard" title="Active Logged-in Faculty Profile">
+                <div class="avatar" id="activeUserAvatar">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                        <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                </div>
+                <div class="user-info">
+                    <strong id="currentUserName">Loading...</strong>
+                    <small id="currentUserRole">Faculty Member</small>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="main">
+        <header class="topbar">
+            <div class="topbar-heading">
+                <p class="eyebrow">Student Discipline & Guidance</p>
+                <h1 id="pageTitle">Dashboard</h1>
+            </div>
+
+            <div class="topbar-actions" style="display: flex; align-items: center; gap: 10px;">
+                <button class="icon-button" onclick="showNotifications()" aria-label="Notifications" title="Notifications">🔔</button>
+                <button class="primary-button" onclick="showNewCaseModal()">+ New Case</button>
+                <button class="secondary-button" onclick="handleSystemLogout()" style="padding: 10px 16px; background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); font-weight: 600; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+                    Log Out
+                </button>
+            </div>
+        </header>
+
+        <section id="pageContent"></section>
+    </main>
+
+</div>
+
+<div class="modal-overlay" id="caseModal">
+    <div class="modal large-modal">
+        <div class="modal-header">
+            <div>
+                <span class="modal-label">CASE RECORD</span>
+                <h2 id="caseModalTitle">Case Details</h2>
+            </div>
+            <button class="close-button" onclick="closeModal('caseModal')" aria-label="Close">×</button>
+        </div>
+        <div id="caseDetails"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="studentModal">
+    <div class="modal large-modal">
+        <div class="modal-header">
+            <div>
+                <span class="modal-label">STUDENT RECORD</span>
+                <h2 id="studentModalTitle">Student History</h2>
+            </div>
+            <button class="close-button" onclick="closeModal('studentModal')" aria-label="Close">×</button>
+        </div>
+        <div id="studentDetails"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="addStudentModal">
+    <div class="modal large-modal">
+        <div class="modal-header">
+            <div>
+                <span class="modal-label">STUDENT MASTERLIST</span>
+                <h2>Add New Student</h2>
+            </div>
+            <button class="close-button" onclick="closeModal('addStudentModal')" aria-label="Close">×</button>
+        </div>
+
+        <form id="addStudentForm" onsubmit="saveNewStudent(event)">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="newStudFirstName">First Name</label>
+                    <input type="text" id="newStudFirstName" placeholder="e.g. Juan" required>
+                </div>
+                <div class="form-group">
+                    <label for="newStudMiddleName">Middle Name</label>
+                    <input type="text" id="newStudMiddleName" placeholder="e.g. Mercado">
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="newStudLastName">Last Name</label>
+                    <input type="text" id="newStudLastName" placeholder="e.g. Dela Cruz" required>
+                </div>
+                <div class="form-group">
+                    <label for="newStudGender">Gender</label>
+                    <select id="newStudGender" required>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="newStudGradeLevel">Grade Level</label>
+                    <select id="newStudGradeLevel" required>
+                        <option value="Grade 7">Grade 7</option>
+                        <option value="Grade 8">Grade 8</option>
+                        <option value="Grade 9">Grade 9</option>
+                        <option value="Grade 10">Grade 10</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="newStudSection">Section</label>
+                    <input type="text" id="newStudSection" placeholder="e.g. Rizal" required>
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="newStudGuardianName">Guardian Name</label>
+                    <input type="text" id="newStudGuardianName" placeholder="Parent / Guardian Name" required>
+                </div>
+                <div class="form-group">
+                    <label for="newStudGuardianContact">Guardian Contact Number</label>
+                    <input type="text" id="newStudGuardianContact" placeholder="09xxxxxxxxx" required>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="secondary-button" onclick="closeModal('addStudentModal')">Cancel</button>
+                <button type="submit" class="primary-button">Save Student</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="newCaseModal">
+    <div class="modal large-modal">
+        <div class="modal-header">
+            <div>
+                <span class="modal-label">CASE MANAGEMENT</span>
+                <h2>Create New Case</h2>
+            </div>
+            <button class="close-button" onclick="closeModal('newCaseModal')" aria-label="Close">×</button>
+        </div>
+
+        <form id="newCaseForm" onsubmit="saveNewCase(event)">
+            <!-- Dynamic Display of Signed-in Faculty Member -->
+            <div class="form-group" style="background: rgba(255,255,255,0.05); padding: 10px 14px; border-radius: 6px; margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.1);">
+                <label style="margin: 0; font-size: 0.85rem; color: #aaa;">Filing Official / Recorded By:</label>
+                <strong id="caseFiledByDisplay" style="display: block; font-size: 0.95rem; color: #38bdf8; margin-top: 2px;">Loading session...</strong>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="caseSectionFilter">Grade & Section Filter (Optional)</label>
+                    <select id="caseSectionFilter" onchange="handleStudentSearch(document.getElementById('studentSearchInput').value)">
+                        <option value="">All Sections</option>
+                    </select>
+                </div>
+
+                <div class="form-group" style="position: relative;">
+                    <label for="studentSearchInput">Search Student</label>
+                    <input 
+                        type="text" 
+                        id="studentSearchInput" 
+                        placeholder="Type student name or ID..." 
+                        autocomplete="off"
+                        oninput="handleStudentSearch(this.value)"
+                        onfocus="handleStudentSearch(this.value)"
+                    >
+                    <input type="hidden" id="caseStudentSelect" required>
+                    <div id="studentSearchResults" class="search-autocomplete-list" style="display: none;"></div>
+                </div>
+            </div>
+
+            <div id="caseStudentPreview" class="case-mini-info" style="display: none; margin: 0 0 18px 0;"></div>
+
+            <hr style="border: none; border-top: 1px solid var(--border); margin: 20px 0;">
+
+            <!-- Clean Multiple Incident Selection Layout -->
+            <div class="form-group">
+                <label style="display: block; margin-bottom: 10px; font-weight: 600; color: #e2e8f0;">Incident / Case Type(s) (Select all that apply)</label>
+                <div id="incidentCheckboxGroup" style="
+                    display: grid; 
+                    grid-template-columns: repeat(2, 1fr); 
+                    gap: 10px; 
+                    background: rgba(255,255,255,0.03); 
+                    padding: 14px; 
+                    border-radius: 8px; 
+                    border: 1px solid rgba(255,255,255,0.1);
+                ">
+                    <label class="checkbox-chip">
+                        <input type="checkbox" name="incident_types" value="Bullying" onchange="updateMultiCaseRecommendation()">
+                        <span>Bullying</span>
+                    </label>
+                    <label class="checkbox-chip">
+                        <input type="checkbox" name="incident_types" value="Smoking" onchange="updateMultiCaseRecommendation()">
+                        <span>Smoking</span>
+                    </label>
+                    <label class="checkbox-chip">
+                        <input type="checkbox" name="incident_types" value="Drugs" onchange="updateMultiCaseRecommendation()">
+                        <span>Possession / Use of Drugs</span>
+                    </label>
+                    <label class="checkbox-chip">
+                        <input type="checkbox" name="incident_types" value="Weapon" onchange="updateMultiCaseRecommendation()">
+                        <span>Possession of Weapon</span>
+                    </label>
+                    <label class="checkbox-chip">
+                        <input type="checkbox" name="incident_types" value="Physical Altercation" onchange="updateMultiCaseRecommendation()">
+                        <span>Physical Altercation</span>
+                    </label>
+                    <label class="checkbox-chip">
+                        <input type="checkbox" name="incident_types" value="Verbal Conflict" onchange="updateMultiCaseRecommendation()">
+                        <span>Verbal Conflict</span>
+                    </label>
+                    <label class="checkbox-chip">
+                        <input type="checkbox" name="incident_types" value="Cheating" onchange="updateMultiCaseRecommendation()">
+                        <span>Academic Dishonesty</span>
+                    </label>
+                    <label class="checkbox-chip">
+                        <input type="checkbox" name="incident_types" value="Vandalism" onchange="updateMultiCaseRecommendation()">
+                        <span>Vandalism</span>
+                    </label>
+                    <label class="checkbox-chip" style="grid-column: span 2;">
+                        <input type="checkbox" name="incident_types" value="Other" id="otherIncidentCheckbox" onchange="toggleOtherIncidentInput(); updateMultiCaseRecommendation();">
+                        <span>Other Offense</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Custom Incident Text Input -->
+            <div class="form-group" id="otherIncidentContainer" style="display: none; margin-top: 10px;">
+                <label for="customIncidentText">Specify Other Offense(s)</label>
+                <input type="text" id="customIncidentText" placeholder="e.g. Cutting classes, Gambling, Extortion..." style="width: 100%; padding: 8px 12px; border-radius: 6px; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.15);">
+            </div>
+
+            <div class="recommendation-box" id="recommendationBox" style="margin: 15px 0;">
+                <div class="recommendation-icon">✦</div>
+                <div>
+                    <strong>Automatic Assessment</strong>
+                    <p id="recommendationText">Select one or more incident types to calculate recommended severity and sanction.</p>
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="caseSeverity">Assessed Severity</label>
+                    <select id="caseSeverity">
+                        <option value="Low">Low</option>
+                        <option value="Medium">Medium</option>
+                        <option value="High">High</option>
+                        <option value="Critical">Critical</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="caseSanction">Assigned Sanction (Modifiable)</label>
+                    <select id="caseSanction" onchange="toggleOtherSanctionInput()">
+                        <option value="Subject for Counseling">Subject for Counseling</option>
+                        <option value="Verbal Warning">Verbal Warning</option>
+                        <option value="Written Warning">Written Warning</option>
+                        <option value="Parent Conference">Parent Conference</option>
+                        <option value="Community Service">Community Service</option>
+                        <option value="2 Days Suspension">2 Days Suspension</option>
+                        <option value="3 Days Suspension">3 Days Suspension</option>
+                        <option value="Suspension">Suspension</option>
+                        <option value="Restitution">Restitution</option>
+                        <option value="Referral to Proper Authorities">Referral to Proper Authorities</option>
+                        <option value="Other">Other Custom Sanction</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Suspension Range & Return Date Calculator -->
+            <div id="suspensionCalculatorContainer" style="display: none; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+                <div style="font-weight: 600; color: #60a5fa; margin-bottom: 10px; font-size: 0.9rem;">
+                     Suspension Effectivity & Lifting 
+                </div>
+                <div class="form-grid">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="suspensionStartDate" style="color: #cbd5e1;">Effectivity Start Date</label>
+                        <input type="date" id="suspensionStartDate" onchange="calculateSuspensionLiftingDate()" style="background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.15); padding: 8px; border-radius: 6px; width: 100%;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="suspensionDays" style="color: #cbd5e1;">Number of School Days</label>
+                        <input type="number" id="suspensionDays" min="1" max="30" value="2" oninput="calculateSuspensionLiftingDate()" style="background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.15); padding: 8px; border-radius: 6px; width: 100%;">
+                    </div>
+                </div>
+                <div id="suspensionResultBadge" style="margin-top: 12px; font-size: 0.85rem; color: #34d399; font-weight: 600; background: rgba(16, 185, 129, 0.12); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.2);">
+                    Return / Lifting Date: Select effectivity date to calculate
+                </div>
+            </div>
+
+            <!-- Custom Sanction Text Input -->
+            <div class="form-group" id="otherSanctionContainer" style="display: none; margin-bottom: 15px;">
+                <label for="customSanctionText">Specify Custom Sanction</label>
+                <input type="text" id="customSanctionText" placeholder="e.g. 5 Days Suspension & Parent Conference..." style="width: 100%; padding: 8px 12px; border-radius: 6px; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.15);">
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="caseDate">Incident Date</label>
+                    <input type="date" id="caseDate" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="caseLocation">Location</label>
+                    <select id="caseLocation">
+                        <option value="Classroom">Classroom</option>
+                        <option value="Hallway">Hallway</option>
+                        <option value="School Grounds">School Grounds</option>
+                        <option value="Canteen">Canteen</option>
+                        <option value="Restroom">Restroom</option>
+                        <option value="Gate">School Gate</option>
+                        <option value="Outside School">Outside School</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="caseDescription">Description</label>
+                <textarea id="caseDescription" rows="3" placeholder="Describe what happened..." required></textarea>
+            </div>
+
+            <!-- Narrative Report File Upload Field -->
+            <div class="form-group" style="margin-top: 15px;">
+                <label for="caseNarrativeFile">Attach Student Narrative Report (Optional)</label>
+                <input 
+                    type="file" 
+                    id="caseNarrativeFile" 
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                    style="padding: 8px; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; width: 100%; color: #e2e8f0; background: rgba(255,255,255,0.05);"
+                >
+                <small style="color: #888; display: block; margin-top: 4px;">Upload signed student statement or written narrative (PDF, Word, or Image).</small>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="secondary-button" onclick="closeModal('newCaseModal')">Cancel</button>
+                <button type="submit" class="primary-button">Create Case</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="sanctionModal">
+    <div class="modal">
+        <div class="modal-header">
+            <div>
+                <span class="modal-label">DISCIPLINARY ACTION</span>
+                <h2>Manage Sanction</h2>
+            </div>
+            <button class="close-button" onclick="closeModal('sanctionModal')" aria-label="Close">×</button>
+        </div>
+
+        <div id="sanctionCaseInfo" class="case-mini-info"></div>
+
+        <form id="sanctionForm" onsubmit="saveSanction(event)">
+            <input type="hidden" id="sanctionCaseId">
+
+            <div class="form-group">
+                <label for="sanctionType">Sanction</label>
+                <select id="sanctionType" required>
+                    <option value="">Select sanction</option>
+                    <option value="Subject for Counseling">Subject for Counseling</option>
+                    <option value="Verbal Warning">Verbal Warning</option>
+                    <option value="Written Warning">Written Warning</option>
+                    <option value="Parent Conference">Parent Conference</option>
+                    <option value="Community Service">Community Service</option>
+                    <option value="2 Days Suspension">2 Days Suspension</option>
+                    <option value="3 Days Suspension">3 Days Suspension</option>
+                    <option value="Suspension">Suspension</option>
+                    <option value="Restitution">Restitution</option>
+                    <option value="Referral to Proper Authorities">Referral to Proper Authorities</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="sanctionDate">Due / Effective Date</label>
+                <input type="date" id="sanctionDate" required>
+            </div>
+
+            <div class="form-group">
+                <label for="sanctionNotes">Notes</label>
+                <textarea id="sanctionNotes" rows="3" placeholder="Additional notes..."></textarea>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="secondary-button" onclick="closeModal('sanctionModal')">Cancel</button>
+                <button type="submit" class="primary-button">Save Sanction</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+    window.historyLogsData = [];
+</script>
+
+<script src="js/data.js?v=1.4"></script>
+<script src="js/ui.js?v=1.4"></script>
+<script src="js/dashboard.js?v=1.4"></script>
+<script src="js/students.js?v=1.4"></script>
+<script src="js/cases.js?v=2.1"></script>
+<script src="js/sanctions.js?v=1.4"></script>
+<script src="js/history.js?v=1.4"></script>
+<script src="js/reports.js?v=1.4"></script>
+<script src="js/navigation.js?v=1.4"></script>
+<script src="js/script.js?v=1.4"></script>
+
+</body>
+</html>

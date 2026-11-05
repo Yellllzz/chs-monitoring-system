@@ -1,0 +1,63 @@
+import mysql from 'mysql2/promise';
+
+export default async function handler(req, res) {
+  // Enable CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ status: 'error', message: 'Method Not Allowed' });
+  }
+
+  const { username, password } = req.body || {};
+
+  if (!username || !password) {
+    return res.status(400).json({ status: 'error', message: 'Please enter your name/username and password.' });
+  }
+
+  try {
+    // Connect to your Aiven MySQL cloud database using Vercel environment variables
+    const connection = await mysql.createConnection({
+      host: process.env.DB_HOST,
+      port: process.env.DB_PORT || 25993,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME || 'defaultdb',
+      ssl: { rejectUnauthorized: false } // Required for Aiven SSL connections
+    });
+
+    // Query the database for the user
+    const [rows] = await connection.execute(
+      'SELECT * FROM users WHERE LOWER(username) = LOWER(?) OR LOWER(full_name) = LOWER(?) LIMIT 1',
+      [username.trim(), username.trim()]
+    );
+
+    await connection.end();
+
+    const user = rows[0];
+
+    // Validate credentials (supports fallback faculty password or stored passwords)
+    if (user && (password === 'chsbuildingbfaculty' || password === user.password)) {
+      return res.status(200).json({
+        status: 'success',
+        message: 'Login successful!',
+        user: {
+          id: user.user_id,
+          name: user.full_name,
+          role: user.role,
+          username: user.username
+        }
+      });
+    } else {
+      return res.status(401).json({ status: 'error', message: 'Access Denied: Invalid credentials or unregistered account.' });
+    }
+  } catch (error) {
+    console.error('Database connection error:', error);
+    return res.status(500).json({ status: 'error', message: 'Database authentication error: ' + error.message });
+  }
+}
