@@ -1,14 +1,11 @@
-// api/login.js
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 
 module.exports = async function handler(req, res) {
-    // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
 
-    // Handle OPTIONS preflight request
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
@@ -18,7 +15,6 @@ module.exports = async function handler(req, res) {
     }
 
     const { username, password } = req.body || {};
-
     const input = (username || '').trim();
     const pass = (password || '').trim();
 
@@ -37,7 +33,6 @@ module.exports = async function handler(req, res) {
             ssl: { rejectUnauthorized: false }
         });
 
-        // Search database for matching username or full_name
         const [rows] = await connection.execute(
             'SELECT * FROM users WHERE LOWER(username) = LOWER(?) OR LOWER(full_name) = LOWER(?) LIMIT 1',
             [input, input]
@@ -51,7 +46,6 @@ module.exports = async function handler(req, res) {
         const user = rows[0];
         let isValidPassword = false;
 
-        // Check against default fallback password or hashed database password
         if (pass === 'chsbuildingbfaculty') {
             isValidPassword = true;
         } else if (user.password) {
@@ -78,7 +72,6 @@ module.exports = async function handler(req, res) {
         } else {
             return res.status(401).json({ status: 'error', message: 'Access Denied: Invalid credentials or unregistered account.' });
         }
-
     } catch (err) {
         if (connection) await connection.end();
         console.error('Database connection error:', err);
