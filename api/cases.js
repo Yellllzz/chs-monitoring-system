@@ -31,7 +31,6 @@ module.exports = async function handler(req, res) {
                 description, 
                 severity, 
                 status, 
-                reported_by, 
                 incident_date, 
                 location, 
                 sanction_type 
@@ -44,15 +43,14 @@ module.exports = async function handler(req, res) {
                 description !== undefined ? description : '',
                 severity !== undefined ? severity : 'Low',
                 status !== undefined ? status : 'Pending',
-                reported_by !== undefined ? reported_by : 'Admin',
                 incident_date !== undefined ? incident_date : null,
                 location !== undefined ? location : null,
                 sanction_type !== undefined ? sanction_type : null
             ];
 
             const [result] = await connection.execute(
-                `INSERT INTO cases (student_id, incident_type, description, severity, status, reported_by, incident_date, location, sanction_type) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO cases (student_id, incident_type, description, severity, status, incident_date, location, sanction_type) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
                 params
             );
 
